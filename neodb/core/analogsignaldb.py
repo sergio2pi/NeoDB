@@ -258,8 +258,8 @@ def get_from_db3(connection, id_block, recordingchannel, **kwargs):
     name = info[4]
     description = info[5]
     
-    analogsignal = AnalogSignalDB(signal, sampling_rate=sampling_rate, units=units, 
-                           index=index, description=description)
+    analogsignal = AnalogSignalDB(signal=signal, sampling_rate=sampling_rate, 
+                                  units=units, index=index, description=description)
     
     # If the analog signal is from a only one segment:
     if time_constraint != "":

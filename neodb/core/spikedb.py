@@ -11,8 +11,8 @@ from quantities import s
 
 class SpikeDB(neo.core.Spike):
     '''
-    classdocs
     '''
+    #TODO: Documentation of SpikeDB.
     def __init__(self, id_unit = None, id_segment = None, id_recordingchannel = None,
                         time = None, waveform = None, left_sweep = None, 
                         sampling_rate = None, name = None, description = None,
@@ -24,7 +24,7 @@ class SpikeDB(neo.core.Spike):
         self.index = index
 
         if time != None:
-            if type(time) == numpy.float64:
+            if (type(time) == numpy.float64) or (type(time) == numpy.float):
                 self.time = numpy.array(time)*s
             else:
                 self.time = float(time.simplified)
@@ -82,8 +82,8 @@ class SpikeDB(neo.core.Spike):
         
         if self.id == None:
             query = """INSERT INTO spike 
-                   (id_unit, id_segment, time, waveform, left_sweep,
-                    sampling_rate, name, description, file_origin, index)
+                   (id_unit, id_segment, id_recordingchannel, time, waveform, 
+                    left_sweep, sampling_rate, name, description, file_origin, index)
                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
             cursor.execute(query,[self.id_unit, self.id_segment,
                                   self.id_recordingchannel, float(time),
@@ -115,7 +115,11 @@ class SpikeDB(neo.core.Spike):
         self.id = id
         return id
 
-def get_from_db(connection, id_block, channel):
+def get_from_db(connection, id_block, channel, **kwargs):
+    
+    for parameter in kwargs.keys():
+        if parameter not in ["id", "id_segment", "id_recordingchannel", "index", "time"]:
+            raise StandardError("""Parameter %s do not belong to SpikeDB.""")%parameter
     
     if id_block == None:
         raise StandardError(""" You must specify id_block.""")
@@ -126,13 +130,40 @@ def get_from_db(connection, id_block, channel):
     # QUERY
     cursor = connection.cursor()
     
-    query = """select analogsignal.index,
-               analogsignal.signal,
-               analogsignal.name
-               from analogsignal join segment
-               on id_segment = segment.id
-               and analogsignal.channel_index = %s"""%nchannel 
-
+    query = """SELECT spike.id,
+                      spike.id_unit,
+                      spike.id_segment,
+                      spike.id_recordingchannel,
+                      spike.time,
+                      spike.waveform,
+                      spike.index
+               FROM spike
+               JOIN recordingchannel ON id_recordingchannel = recordingchannel.id
+               WHERE recordingchannel.id_block = %s and 
+                     recordingchannel.index = %s """%(id_block, channel)
+    constraint = ""
+    
+    for key, value in kwargs.iteritems():
+        constraint = "%s and spike.%s='%s'"%(constraint,key,value)
+    
+    if constraint != "":
+        query = query + constraint
+    
+    cursor.execute(query)
+    results = cursor.fetchall()
+    
+    spikes = []
+    
+    for result in results:
+        spike = SpikeDB(id_unit = result[1], id_segment = result[2], 
+                        id_recordingchannel = result[3], time = result[4], 
+                        waveform = numpy.frombuffer(result[5], numpy.int16),
+                        index = result[6])
+        spike.id = result[0]
+        spikes.append(spike)
+        
+    return spikes
+    
 if __name__ == '__main__':
     username = 'postgres'
     password = 'postgres'
@@ -142,7 +173,11 @@ if __name__ == '__main__':
     
     dbconn = psycopg2.connect('dbname=%s user=%s password=%s host=%s'%(dbname, username, password, host))
 
-    spike = SpikeDB(id_segment = 33, waveform = [1,2,3,4,5,6], index = 156)
-    spike.save(dbconn)
+#     spike = SpikeDB(id_segment = 33, waveform = [1,2,3,4,5,6], index = 156)
+#     spike.save(dbconn)
+    
+    
+    get_from_db(dbconn, id_block = 54, channel = 3, index = 493638)
+                
     pass
         
