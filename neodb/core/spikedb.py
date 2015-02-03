@@ -39,9 +39,10 @@ class SpikeDB(neo.core.Spike):
             self.left_sweep = left_sweep
         
         if sampling_rate != None:
-            self.sampling_rate = float(sampling_rate.simplified)
-        else:
-            self.sampling_rate = sampling_rate
+            if (type(time) == numpy.float64) or (type(time) == numpy.float):
+                self.sampling_rate = sampling_rate
+            else:
+                self.sampling_rate = float(sampling_rate.simplified)
         
         self.name = name
         self.description = description
@@ -136,7 +137,8 @@ def get_from_db(connection, id_block, channel, **kwargs):
                       spike.id_recordingchannel,
                       spike.time,
                       spike.waveform,
-                      spike.index
+                      spike.index,
+                      spike.sampling_rate
                FROM spike
                JOIN recordingchannel ON id_recordingchannel = recordingchannel.id
                WHERE recordingchannel.id_block = %s and 
@@ -158,11 +160,57 @@ def get_from_db(connection, id_block, channel, **kwargs):
         spike = SpikeDB(id_unit = result[1], id_segment = result[2], 
                         id_recordingchannel = result[3], time = result[4], 
                         waveform = numpy.frombuffer(result[5], numpy.int16),
-                        index = result[6])
+                        index = result[6], sampling_rate = result[7])
         spike.id = result[0]
         spikes.append(spike)
         
     return spikes
+    
+def get_ids_from_db(connection, id_block, channel):
+    # QUERY
+    cursor = connection.cursor()
+    
+    query = """SELECT spike.id
+               FROM spike
+               JOIN recordingchannel ON id_recordingchannel = recordingchannel.id
+               WHERE recordingchannel.id_block = %s and 
+                     recordingchannel.index = %s """%(id_block, channel)
+    
+    cursor.execute(query)
+    results = cursor.fetchall()
+    
+    ids = []
+    
+    if results != []:
+        for tuple in results:
+            ids.append(tuple[0])
+    
+    return ids
+    
+def update(connection, id, **kwargs):
+    #TODO: add this function in Class SpikeDB
+    cursor = connection.cursor()
+    query = """UPDATE spike
+               SET """
+    columns = neodb.column_names('spike', connection)
+    
+    for parameter in kwargs.keys():
+        if parameter not in columns:
+            raise StandardError("Parameter %s do not belong to SpikeDB."%parameter)
+    
+    parameters = ""
+    
+    for key, value in kwargs.iteritems():
+        parameters = "%s %s= '%s', "%(parameters, key, value)
+    parameters = parameters[0:len(parameters)-2]
+    
+    query = query + parameters
+    
+    query = query + " WHERE id = %s"%id
+    
+    cursor.execute(query)
+    connection.commit()
+    
     
 if __name__ == '__main__':
     username = 'postgres'
@@ -177,7 +225,10 @@ if __name__ == '__main__':
 #     spike.save(dbconn)
     
     
-    get_from_db(dbconn, id_block = 54, channel = 3, index = 493638)
-                
+    #get_from_db(dbconn, id_block = 54, channel = 3, index = 493638)
+    #spikes_id = get_ids_from_db(dbconn, id_block = 54, channel = 3)
+    
+    
+    update(dbconn, 1035, p1 = 1, p2 = 2, p3 = 3)
     pass
         

@@ -296,5 +296,6 @@ if __name__ == '__main__':
 
     #ansig = AnalogSignalDB([], sampling_rate=14400*Hz, units='mV')
     #ansig = get_from_db3(dbconn, id_block = 54, recordingchannel = 3, t_start = 59)
-    ansig = get_from_db3(dbconn, id_block = 54, recordingchannel = 3, t_start = 59)
+    ansig = get_from_db3(dbconn, id_block = 54, recordingchannel = 3)
+    
     pass
